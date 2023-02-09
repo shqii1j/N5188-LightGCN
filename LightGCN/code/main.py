@@ -16,7 +16,7 @@ from register import dataset
 import wandb
 
 wandb.init(sync_tensorboard=False,
-               project="DatasetDistillation",
+               project="LightGCN",
                job_type="CleanRepo",
                config=args,
                )
