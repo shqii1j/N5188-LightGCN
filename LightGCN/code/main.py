@@ -16,12 +16,12 @@ from register import dataset
 import wandb
 
 wandb.init(sync_tensorboard=False,
-               project="DatasetDistillation",
+               project="LightGCN",
                job_type="CleanRepo",
-               config=args,
+               config=world.config,
                )
 for key in wandb.config._items:
-    setattr(args, key, wandb.config._items[key])
+    setattr(world.config, key, wandb.config._items[key])
 
 Recmodel = register.MODELS[world.model_name](world.config, dataset)
 Recmodel = Recmodel.to(world.device)
