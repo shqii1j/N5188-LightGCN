@@ -20,8 +20,6 @@ wandb.init(sync_tensorboard=False,
                job_type="CleanRepo",
                config=world.config,
                )
-for key in wandb.config._items:
-    setattr(world.config, key, wandb.config._items[key])
 
 Recmodel = register.MODELS[world.model_name](world.config, dataset)
 Recmodel = Recmodel.to(world.device)
