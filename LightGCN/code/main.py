@@ -51,13 +51,13 @@ try:
             cprint("[TEST]")
             test_result = Procedure.Test(dataset, Recmodel, epoch, w, world.config['multicore'])
             for i in range(len(world.topks)):
-                wandb.log({str(world.topks[i])+"/Precision": test_result['precision'][i].detach().cpu()}, step=epoch)
-                wandb.log({str(world.topks[i])+"/Recall": test_result["recall"][i].detach().cpu()}, step=epoch)
-                wandb.log({str(world.topks[i])+"/NDCG": test_result["ndcg"][i].detach().cpu()}, step=epoch)
+                wandb.log({str(world.topks[i])+"/Precision": test_result['precision'][i]}, step=epoch)
+                wandb.log({str(world.topks[i])+"/Recall": test_result["recall"][i]}, step=epoch)
+                wandb.log({str(world.topks[i])+"/NDCG": test_result["ndcg"][i]}, step=epoch)
 
         aver_loss, time_info = Procedure.BPR_train_original(dataset, Recmodel, bpr, epoch, neg_k=Neg_k,w=w)
         print(f'EPOCH[{epoch+1}/{world.TRAIN_epochs}] loss{aver_loss:.3f}-{time_info}')
-        wandb.log({"Loss": aver_loss.detach().cpu()})
+        wandb.log({"Loss": aver_loss})
         torch.save(Recmodel.state_dict(), weight_file)
 
 finally:
