@@ -1,6 +1,6 @@
 *.xml
 *.log
-*.apk
+*.APK
 *.iml
 **/.vscode/
 **/.idea/
@@ -14,3 +14,5 @@ __pycache__/
 *.npy
 *.so
 .rendered
+code/checkpoints/
+code/runs/
