@@ -8,6 +8,7 @@ Design Dataset here
 Every dataset's index has to start at 0
 """
 import os
+import pdb
 from os.path import join
 import sys
 import torch
@@ -354,19 +355,41 @@ class Loader(BasicDataset):
                 
                 norm_adj = d_mat.dot(adj_mat)
                 norm_adj = norm_adj.dot(d_mat)
+                norm_adj_r = norm_adj[:self.n_users, self.n_users:]
+                norm_adj_u2 = norm_adj_r.dot(norm_adj_r.T) - np.diag(rowsum[:self.n_users])
+                norm_adj_i2 = norm_adj_r.T.dot(norm_adj_r) - np.diag(rowsum[self.n_users:])
+
                 norm_adj = norm_adj.tocsr()
+                norm_adj_r = norm_adj_r.tocsr()
+                norm_adj_u2 = norm_adj_u2.tocsr()
+                norm_adj_i2 = norm_adj_i2.tocsr()
                 end = time()
                 print(f"costing {end-s}s, saved norm_mat...")
                 sp.save_npz(self.path + '/s_pre_adj_mat.npz', norm_adj)
+                sp.save_npz(self.path + '/s_pre_adj_mat_r.npz', norm_adj_r)
+                sp.save_npz(self.path + '/s_pre_adj_mat_u2.npz', norm_adj_u2)
+                sp.save_npz(self.path + '/s_pre_adj_mat_i2.npz', norm_adj_i2)
 
             if self.split == True:
                 self.Graph = self._split_A_hat(norm_adj)
                 print("done split matrix")
+                print("Not Finished!")
+                pdb.set_trace()
             else:
                 self.Graph = self._convert_sp_mat_to_sp_tensor(norm_adj)
                 self.Graph = self.Graph.coalesce().to(world.device)
+
+                self.Graph_UI = self._convert_sp_mat_to_sp_tensor(norm_adj_r)
+                self.Graph_UI = self.Graph.coalesce().to(world.device)
+
+                self.Graph_U2 = self._convert_sp_mat_to_sp_tensor(norm_adj_u2)
+                self.Graph_U2 = self.Graph.coalesce().to(world.device)
+
+                self.Graph_I2 = self._convert_sp_mat_to_sp_tensor(norm_adj_i2)
+                self.Graph_I2 = self.Graph.coalesce().to(world.device)
+
                 print("don't split the matrix")
-        return self.Graph
+        return self.Graph, self.Graph_UI, self.Graph_U2, self.Graph_I2
 
     def __build_test(self):
         """

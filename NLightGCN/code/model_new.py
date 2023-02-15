@@ -42,10 +42,6 @@ class N_LightGCN(BasicModel):
         self.embedding_item = torch.nn.Embedding(
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
         if self.config['pretrain'] == 0:
-#             nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
-#             nn.init.xavier_uniform_(self.embedding_item.weight, gain=1)
-#             print('use xavier initilizer')
-# random normal init seems to be a better choice when lightGCN actually don't use any non-linear activation function
             nn.init.normal_(self.embedding_user.weight, std=0.1)
             nn.init.normal_(self.embedding_item.weight, std=0.1)
             world.cprint('use NORMAL distribution initilizer')
@@ -54,7 +50,14 @@ class N_LightGCN(BasicModel):
             self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
             print('use pretarined data')
         self.f = nn.Sigmoid()
-        self.Graph = self.dataset.getSparseGraph()
+        self.w_u1 = nn.Linear(self.num_users, self.hidden_dim)
+        self.w_u2 = nn.Linear(self.num_users, self.hidden_dim)
+        self.w_i1 = nn.Linear(self.num_items, self.hidden_dim)
+        self.w_i2 = nn.Linear(self.num_items, self.hidden_dim)
+        self.w_u = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
+        self.w_i = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
+
+        self.Graph, self.Graph_UI, self.Graph_U2, self.Graph_I2 = self.dataset.getSparseGraph()
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
 
         # print("save_txt")
@@ -90,22 +93,26 @@ class N_LightGCN(BasicModel):
         if self.config['dropout']:
             if self.training:
                 print("droping")
-                g_droped = self.__dropout(self.keep_prob)
+                g_r_droped = self.__dropout(self.keep_prob[0])
+                g_u2_droped = self.__dropout(self.keep_prob[1])
+                g_i2_droped = self.__dropout(self.keep_prob[2])
             else:
-                g_droped = self.Graph        
+                g_r_droped, g_u2_droped, g_i2_droped = self.Graph_UI, self.Graph_U2, self.Graph_I2
         else:
-            g_droped = self.Graph    
-        
-        for layer in range(self.n_layers):
-            if self.A_split:
-                temp_emb = []
-                for f in range(len(g_droped)):
-                    temp_emb.append(torch.sparse.mm(g_droped[f], all_emb))
-                side_emb = torch.cat(temp_emb, dim=0)
-                all_emb = side_emb
-            else:
-                all_emb = torch.sparse.mm(g_droped, all_emb)
-            embs.append(all_emb)
+            g_r_droped, g_u2_droped, g_i2_droped = self.Graph_UI, self.Graph_U2, self.Graph_I2
+
+        # if self.A_split:
+        #     temp_emb = []
+        #     for f in range(len(g_droped)):
+        #         temp_emb.append(torch.sparse.mm(g_droped[f], all_emb))
+        #     side_emb = torch.cat(temp_emb, dim=0)
+        #     all_emb = side_emb
+        # else:
+        #     all_emb = torch.sparse.mm(g_droped, all_emb)
+        # embs.append(all_emb)
+
+
+
         embs = torch.stack(embs, dim=1)
         #print(embs.size())
         light_out = torch.mean(embs, dim=1)

@@ -7,7 +7,7 @@ Xiangnan He et al. LightGCN: Simplifying and Powering Graph Convolution Network 
 '''
 import argparse
 
-
+# hidden dim, keepdrop-list
 def parse_args():
     parser = argparse.ArgumentParser(description="Go lightGCN")
     parser.add_argument('--bpr_batch', type=int,default=2048,
