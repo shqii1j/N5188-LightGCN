@@ -382,7 +382,13 @@ class UltraGCN(nn.Module):
 Train
 '''
 ########################### TRAINING #####################################
-def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_list, interacted_items, params): 
+def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_list, interacted_items, params):
+    wandb.init(sync_tensorboard=False,
+               project="LightGCN",
+               job_type="CleanRepo",
+               config=params,
+               )
+
     device = params['device']
     best_epoch, best_recall, best_ndcg = 0, 0, 0
     early_stop_count = 0
@@ -417,7 +423,7 @@ def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_l
         train_time = time.strftime("%H: %M: %S", time.gmtime(time.time() - start_time))
         if params['enable_tensorboard']:
             writer.add_scalar("Loss/train_epoch", loss, epoch)
-        wandb.log({"Loss/train_epoch": loss}, step=epoch)
+        wandb.log({"Loss/train_epoch": loss})
 
         need_test = True
         if epoch < 50 and epoch % 5 != 0:
@@ -433,20 +439,20 @@ def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_l
             
             print('The time for epoch {} is: train time = {}, test time = {}'.format(epoch, train_time, test_time))
             print("Loss = {:.5f}, F1-score: {:5f} \t Precision: {:.5f}\t Recall: {:.5f}\tNDCG: {:.5f}".format(loss.item(), F1_score, Precision, Recall, NDCG))
-            wandb.log({'Train Time': train_time, 'Test Time': test_time}, step=epoch)
-            wandb.log({"Results/recall@20": Recall, 'Results/ndcg@20': NDCG, 'Results/f1@20': F1_score, 'Results/precison@20':Precision}, step=epoch)
+            wandb.log({'Train Time': train_time, 'Test Time': test_time})
+            wandb.log({"Results/recall@20": Recall, 'Results/ndcg@20': NDCG, 'Results/f1@20': F1_score, 'Results/precison@20':Precision})
 
             if Recall > best_recall:
                 best_recall, best_ndcg, best_epoch = Recall, NDCG, epoch
                 early_stop_count = 0
                 torch.save(model.state_dict(), params['model_save_path'])
-                wandb.log({"Results/best_recall@20": Recall, 'Results/best_ndcg@20': NDCG}, step=epoch)
-
             else:
                 early_stop_count += 1
                 if early_stop_count == params['early_stop_epoch']:
                     early_stop = True
-        
+
+            wandb.log({"Results/best_recall@20": best_recall, 'Results/best_ndcg@20': best_ndcg})
+
         if early_stop:
             print('##########################################')
             print('Early stop is triggered at {} epochs.'.format(epoch))
@@ -623,11 +629,6 @@ if __name__ == "__main__":
     print('Configuration:')
     print(params)
 
-    wandb.init(sync_tensorboard=False,
-               project="LightGCN",
-               job_type="CleanRepo",
-               config=params,
-               )
 
 
     ultragcn = UltraGCN(params, constraint_mat, ii_constraint_mat, ii_neighbor_mat)
