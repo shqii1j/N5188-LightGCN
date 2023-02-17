@@ -411,7 +411,6 @@ def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_l
             loss = model(users, pos_items, neg_items)
             if params['enable_tensorboard']:
                 writer.add_scalar("Loss/train_batch", loss, batches * epoch + batch)
-            wandb.log({"Loss/train_batch": loss}, step=batches * epoch + batch)
             loss.backward()
             optimizer.step()
         
