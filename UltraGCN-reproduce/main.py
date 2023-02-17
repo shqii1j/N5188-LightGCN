@@ -423,7 +423,7 @@ def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_l
         train_time = time.strftime("%H: %M: %S", time.gmtime(time.time() - start_time))
         if params['enable_tensorboard']:
             writer.add_scalar("Loss/train_epoch", loss, epoch)
-        wandb.log({"Loss/train_epoch": loss})
+        wandb.log({"Loss/train_epoch": loss}, commit=True)
 
         need_test = True
         if epoch < 50 and epoch % 5 != 0:
@@ -440,7 +440,7 @@ def train(model, optimizer, train_loader, test_loader, mask, test_ground_truth_l
             print('The time for epoch {} is: train time = {}, test time = {}'.format(epoch, train_time, test_time))
             print("Loss = {:.5f}, F1-score: {:5f} \t Precision: {:.5f}\t Recall: {:.5f}\tNDCG: {:.5f}".format(loss.item(), F1_score, Precision, Recall, NDCG))
             wandb.log({'Train Time': train_time, 'Test Time': test_time})
-            wandb.log({"Results/recall@20": Recall, 'Results/ndcg@20': NDCG, 'Results/f1@20': F1_score, 'Results/precison@20':Precision})
+            wandb.log({"Results/recall@20": Recall, 'Results/ndcg@20': NDCG, 'Results/f1@20': F1_score, 'Results/precison@20': Precision})
 
             if Recall > best_recall:
                 best_recall, best_ndcg, best_epoch = Recall, NDCG, epoch
