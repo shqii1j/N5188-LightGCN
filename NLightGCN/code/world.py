@@ -31,7 +31,7 @@ if not os.path.exists(FILE_PATH):
 
 config = {}
 all_dataset = ['lastfm', 'gowalla', 'yelp2018', 'amazon-book']
-all_models  = ['mf', 'lgn']
+all_models  = ['mf', 'lgn', 'n_lgn']
 # config['batch_size'] = 4096
 config['bpr_batch_size'] = args.bpr_batch
 config['latent_dim_rec'] = args.recdim
@@ -78,12 +78,12 @@ def cprint(words : str):
     print(f"\033[0;30;43m{words}\033[0m")
 
 logo = r"""
-██╗      ██████╗ ███╗   ██╗
-██║     ██╔════╝ ████╗  ██║
-██║     ██║  ███╗██╔██╗ ██║
-██║     ██║   ██║██║╚██╗██║
-███████╗╚██████╔╝██║ ╚████║
-╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
+███╗   ██╗ ██╗      ██████╗ ███╗   ██╗
+████╗  ██║ ██║     ██╔════╝ ████╗  ██║
+██╔██╗ ██║ ██║     ██║  ███╗██╔██╗ ██║
+██║╚██╗██║ ██║     ██║   ██║██║╚██╗██║
+██║ ╚████║ ███████╗╚██████╔╝██║ ╚████║
+╚═╝  ╚═══╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
 """
 # font: ANSI Shadow
 # refer to http://patorjk.com/software/taag/#p=display&f=ANSI%20Shadow&t=Sampling
