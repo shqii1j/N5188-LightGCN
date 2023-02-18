@@ -7,6 +7,8 @@ Xiangnan He et al. LightGCN: Simplifying and Powering Graph Convolution Network 
 
 Define models here
 """
+import pdb
+
 import world
 import torch
 from dataloader import BasicDataset
@@ -50,10 +52,10 @@ class N_LightGCN(BasicModel):
             self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
             print('use pretarined data')
         self.f = nn.Sigmoid()
-        self.w_u1 = nn.Linear(self.num_users, self.hidden_dim)
-        self.w_u2 = nn.Linear(self.num_users, self.hidden_dim)
-        self.w_i1 = nn.Linear(self.num_items, self.hidden_dim)
-        self.w_i2 = nn.Linear(self.num_items, self.hidden_dim)
+        self.w_u1 = nn.Linear(self.num_items, self.hidden_dim)
+        self.w_u2 = nn.Linear(self.num_items, self.hidden_dim)
+        self.w_i1 = nn.Linear(self.num_users, self.hidden_dim)
+        self.w_i2 = nn.Linear(self.num_users, self.hidden_dim)
         self.w_u = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
         self.w_i = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
 
@@ -84,7 +86,8 @@ class N_LightGCN(BasicModel):
     def computer(self):
         """
         propagate methods for lightGCN
-        """       
+        """
+        pdb.set_trace()
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
@@ -111,12 +114,12 @@ class N_LightGCN(BasicModel):
         #     all_emb = torch.sparse.mm(g_droped, all_emb)
         # embs.append(all_emb)
 
+        h_u = torch.cat([self.f(g_r_droped.dot(self.w_u1)), self.f(g_u2_droped.dot(self.w_u2))])
+        h_i = torch.cat([self.f(g_r_droped.T.dot(self.w_i1)), self.f(g_i2_droped.dot(self.w_i2))])
 
+        users = h_u.dot(self.w_u)
+        items = h_i.dot(self.w_i)
 
-        embs = torch.stack(embs, dim=1)
-        #print(embs.size())
-        light_out = torch.mean(embs, dim=1)
-        users, items = torch.split(light_out, [self.num_users, self.num_items])
         return users, items
     
     def getUsersRating(self, users):

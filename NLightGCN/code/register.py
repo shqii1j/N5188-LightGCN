@@ -1,6 +1,7 @@
 import world
 import dataloader
 import model
+import model_new
 import utils
 from pprint import pprint
 
@@ -22,5 +23,6 @@ print('===========end===================')
 
 MODELS = {
     'mf': model.PureMF,
-    'lgn': model.LightGCN
+    'lgn': model.LightGCN,
+    'n_lgn': model_new.N_LightGCN
 }
