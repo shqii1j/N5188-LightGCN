@@ -14,6 +14,8 @@ def parse_args():
                         help="the batch size for bpr loss training procedure")
     parser.add_argument('--recdim', type=int,default=64,
                         help="the embedding size of lightGCN")
+    parser.add_argument('--hidden_dim', type=int, default=64,
+                        help="the hidden vector size of N_lightGCN")
     parser.add_argument('--layer', type=int,default=3,
                         help="the layer num of lightGCN")
     parser.add_argument('--lr', type=float,default=0.001,
@@ -22,7 +24,7 @@ def parse_args():
                         help="the weight decay for l2 normalizaton")
     parser.add_argument('--dropout', type=int,default=0,
                         help="using the dropout or not")
-    parser.add_argument('--keepprob', type=float,default=0.6,
+    parser.add_argument('--keepprob', type=str,default="[0.6,0.6,0.6]",
                         help="the batch size for bpr loss training procedure")
     parser.add_argument('--a_fold', type=int,default=100,
                         help="the fold num used to split large adj matrix, like gowalla")

@@ -36,8 +36,8 @@ class N_LightGCN(BasicModel):
         self.num_users  = self.dataset.n_users
         self.num_items  = self.dataset.m_items
         self.latent_dim = self.config['latent_dim_rec']
-        self.n_layers = self.config['lightGCN_n_layers']
-        self.keep_prob = self.config['keep_prob']
+        self.hidden_dim = self.config['hidden_dim_rec']
+        self.keep_prob = eval(self.config['keep_prob'])
         self.A_split = self.config['A_split']
         self.embedding_user = torch.nn.Embedding(
             num_embeddings=self.num_users, embedding_dim=self.latent_dim)
@@ -51,13 +51,13 @@ class N_LightGCN(BasicModel):
             self.embedding_user.weight.data.copy_(torch.from_numpy(self.config['user_emb']))
             self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
             print('use pretarined data')
-        self.f = nn.Sigmoid()
-        self.w_u1 = nn.Linear(self.num_items, self.hidden_dim)
-        self.w_u2 = nn.Linear(self.num_items, self.hidden_dim)
-        self.w_i1 = nn.Linear(self.num_users, self.hidden_dim)
-        self.w_i2 = nn.Linear(self.num_users, self.hidden_dim)
-        self.w_u = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
-        self.w_i = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
+        self.f = nn.Sigmoid().to(world.device)
+        self.w_u1 = nn.Linear(self.latent_dim, self.hidden_dim).to(world.device)
+        self.w_u2 = nn.Linear(self.latent_dim, self.hidden_dim).to(world.device)
+        self.w_i1 = nn.Linear(self.latent_dim, self.hidden_dim).to(world.device)
+        self.w_i2 = nn.Linear(self.latent_dim, self.hidden_dim).to(world.device)
+        self.w_u = nn.Linear(self.hidden_dim * 2, self.hidden_dim).to(world.device)
+        self.w_i = nn.Linear(self.hidden_dim * 2, self.hidden_dim).to(world.device)
 
         self.Graph, self.Graph_UI, self.Graph_U2, self.Graph_I2 = self.dataset.getSparseGraph()
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
@@ -87,7 +87,6 @@ class N_LightGCN(BasicModel):
         """
         propagate methods for lightGCN
         """
-        pdb.set_trace()
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
@@ -113,12 +112,15 @@ class N_LightGCN(BasicModel):
         # else:
         #     all_emb = torch.sparse.mm(g_droped, all_emb)
         # embs.append(all_emb)
+        h_u1 = torch.sparse.mm(g_r_droped, items_emb)
+        h_u2 = torch.sparse.mm(g_u2_droped, users_emb)
+        h_i1 = torch.sparse.mm(g_r_droped.t(), users_emb)
+        h_i2 = torch.sparse.mm(g_i2_droped, items_emb)
+        h_u = torch.cat([self.f(self.w_u1(h_u1)), self.f(self.w_u2(h_u2))], dim=1)
+        h_i = torch.cat([self.f(self.w_i1(h_i1)), self.f(self.w_i2(h_i2))], dim=1)
 
-        h_u = torch.cat([self.f(g_r_droped.dot(self.w_u1)), self.f(g_u2_droped.dot(self.w_u2))])
-        h_i = torch.cat([self.f(g_r_droped.T.dot(self.w_i1)), self.f(g_i2_droped.dot(self.w_i2))])
-
-        users = h_u.dot(self.w_u)
-        items = h_i.dot(self.w_i)
+        users = self.w_u(h_u)
+        items = self.w_i(h_i)
 
         return users, items
     
