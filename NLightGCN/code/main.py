@@ -57,8 +57,9 @@ try:
 
         aver_loss, time_info = Procedure.BPR_train_original(dataset, Recmodel, bpr, epoch, neg_k=Neg_k,w=w)
         print(f'EPOCH[{epoch+1}/{world.TRAIN_epochs}] loss{aver_loss:.3f}-{time_info}')
-        wandb.log({"Loss": aver_loss})
+        wandb.log({"Loss": aver_loss}, step=epoch)
         torch.save(Recmodel.state_dict(), weight_file)
+    wandb.finish()
 
 finally:
     if world.tensorboard:
