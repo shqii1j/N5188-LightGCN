@@ -177,7 +177,7 @@ class N2_LightGCN(BasicModel):
         self.A_split = self.config['A_split']
         self.embedding_item = torch.nn.Embedding(
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
-        self.Graph, _, _, _ = self.dataset.getSparseGraph()
+        self.Graph, self.Graph_UI, _, _ = self.dataset.getSparseGraph()
         self.embedding_user = torch.sparse.mm(self.Graph_UI, self.embedding_item)
         if self.config['pretrain'] == 0:
             #             nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
