@@ -24,5 +24,5 @@ print('===========end===================')
 MODELS = {
     'mf': model.PureMF,
     'lgn': model.LightGCN,
-    'n_lgn': model_new.N_LightGCN
+    'n1lgn': model_new.N1_LightGCN
 }

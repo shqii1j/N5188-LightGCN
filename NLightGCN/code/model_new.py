@@ -23,11 +23,11 @@ class BasicModel(nn.Module):
     def getUsersRating(self, users):
         raise NotImplementedError
 
-class N_LightGCN(BasicModel):
+class N1_LightGCN(BasicModel):
     def __init__(self, 
                  config:dict, 
                  dataset:BasicDataset):
-        super(N_LightGCN, self).__init__()
+        super(N1_LightGCN, self).__init__()
         self.config = config
         self.dataset : dataloader.BasicDataset = dataset
         self.__init_weight()
@@ -103,15 +103,6 @@ class N_LightGCN(BasicModel):
         else:
             g_r_droped, g_u2_droped, g_i2_droped = self.Graph_UI, self.Graph_U2, self.Graph_I2
 
-        # if self.A_split:
-        #     temp_emb = []
-        #     for f in range(len(g_droped)):
-        #         temp_emb.append(torch.sparse.mm(g_droped[f], all_emb))
-        #     side_emb = torch.cat(temp_emb, dim=0)
-        #     all_emb = side_emb
-        # else:
-        #     all_emb = torch.sparse.mm(g_droped, all_emb)
-        # embs.append(all_emb)
         h_u1 = torch.sparse.mm(g_r_droped, items_emb)
         h_u2 = torch.sparse.mm(g_u2_droped, users_emb)
         h_i1 = torch.sparse.mm(g_r_droped.t(), users_emb)
