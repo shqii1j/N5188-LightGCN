@@ -47,17 +47,17 @@ else:
 try:
     for epoch in range(world.TRAIN_epochs):
         start = time.time()
-        if epoch %10 == 0:
+        if (epoch+1) % 10 == 0 or epoch == 0:
             cprint("[TEST]")
             test_result = Procedure.Test(dataset, Recmodel, epoch, w, world.config['multicore'])
             for i in range(len(world.topks)):
-                wandb.log({str(world.topks[i])+"/Precision": test_result['precision'][i]}, step=epoch)
-                wandb.log({str(world.topks[i])+"/Recall": test_result["recall"][i]}, step=epoch)
-                wandb.log({str(world.topks[i])+"/NDCG": test_result["ndcg"][i]}, step=epoch)
+                wandb.log({str(world.topks[i])+"/Precision": test_result['precision'][i]}, step=epoch+1)
+                wandb.log({str(world.topks[i])+"/Recall": test_result["recall"][i]}, step=epoch+1)
+                wandb.log({str(world.topks[i])+"/NDCG": test_result["ndcg"][i]}, step=epoch+1)
 
         aver_loss, time_info = Procedure.BPR_train_original(dataset, Recmodel, bpr, epoch, neg_k=Neg_k,w=w)
         print(f'EPOCH[{epoch+1}/{world.TRAIN_epochs}] loss{aver_loss:.3f}-{time_info}')
-        wandb.log({"Loss": aver_loss}, step=epoch)
+        wandb.log({"Loss": aver_loss}, step=epoch+1)
         torch.save(Recmodel.state_dict(), weight_file)
     wandb.finish()
 

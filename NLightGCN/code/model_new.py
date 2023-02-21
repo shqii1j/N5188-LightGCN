@@ -176,78 +176,44 @@ class N2_LightGCN(BasicModel):
         self.keep_prob = self.config['keep_prob']
         self.A_split = self.config['A_split']
         self.embedding_item = torch.nn.Embedding(
-            num_embeddings=self.num_items, embedding_dim=self.latent_dim)
-        self.Graph, self.Graph_UI, _, _ = self.dataset.getSparseGraph()
-        self.embedding_user = torch.sparse.mm(self.Graph_UI, self.embedding_item)
+            num_embeddings=self.num_items, embedding_dim=self.latent_dim).to(world.device)
+        self.Graph, self.Graph_UI, self.Graph_U2, _ = self.dataset.getSparseGraph()
+        self.embedding_user = torch.sparse.mm(self.Graph_UI, self.embedding_item.weight)
+
         if self.config['pretrain'] == 0:
-            #             nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
-            #             nn.init.xavier_uniform_(self.embedding_item.weight, gain=1)
-            #             print('use xavier initilizer')
-            # random normal init seems to be a better choice when lightGCN actually don't use any non-linear activation function
             nn.init.normal_(self.embedding_item.weight, std=0.1)
             world.cprint('use NORMAL distribution initilizer')
         else:
             self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
             print('use pretarined data')
-        self.f = nn.Sigmoid()
 
-        print(f"n2_lgn is already to go(dropout:{self.config['dropout']})")
+        self.att = [nn.Linear(self.latent_dim, 1).to(world.device) for _ in range(self.n_layers)]
+        self.f = nn.Sigmoid().to(world.device)
 
-        # print("save_txt")
-
-    def __dropout_x(self, x, keep_prob):
-        size = x.size()
-        index = x.indices().t()
-        values = x.values()
-        random_index = torch.rand(len(values)) + keep_prob
-        random_index = random_index.int().bool()
-        index = index[random_index]
-        values = values[random_index] / keep_prob
-        g = torch.sparse.FloatTensor(index.t(), values, size)
-        return g
-
-    def __dropout(self, keep_prob):
-        if self.A_split:
-            graph = []
-            for g in self.Graph:
-                graph.append(self.__dropout_x(g, keep_prob))
-        else:
-            graph = self.__dropout_x(self.Graph, keep_prob)
-        return graph
+        print(f"n2_lgn is already to go")
 
     def computer(self):
         """
         propagate methods for lightGCN
         """
+        self.embedding_user = torch.sparse.mm(self.Graph_UI, self.embedding_item.weight).to(world.device)
         users_emb = self.embedding_user
         items_emb = self.embedding_item.weight
-        all_emb = torch.cat([users_emb, items_emb])
-        #   torch.split(all_emb , [self.num_users, self.num_items])
-        embs = [all_emb]
-        if self.config['dropout']:
-            if self.training:
-                print("droping")
-                g_droped = self.__dropout(self.keep_prob)
-            else:
-                g_droped = self.Graph
-        else:
-            g_droped = self.Graph
+        g = self.Graph_U2
+        all_emb = users_emb
+        r_emb = users_emb
+        u_embs = [all_emb]
 
         for layer in range(self.n_layers):
-            if self.A_split:
-                temp_emb = []
-                for f in range(len(g_droped)):
-                    temp_emb.append(torch.sparse.mm(g_droped[f], all_emb))
-                side_emb = torch.cat(temp_emb, dim=0)
-                all_emb = side_emb
-            else:
-                all_emb = torch.sparse.mm(g_droped, all_emb)
-            embs.append(all_emb)
-        embs = torch.stack(embs, dim=1)
+            att = torch.tanh(self.att[layer](r_emb))
+            all_emb = torch.sparse.mm(g, all_emb) * att
+            r_emb = all_emb + r_emb
+            u_embs.append(all_emb)
+        u_embs = torch.stack(u_embs, dim=1)
         # print(embs.size())
-        light_out = torch.mean(embs, dim=1)
-        users, items = torch.split(light_out, [self.num_users, self.num_items])
-        return users, items
+        users = torch.mean(u_embs, dim=1)
+        items = items_emb
+        return users.to(world.device), items.to(world.device)
 
     def getUsersRating(self, users):
         all_users, all_items = self.computer()
@@ -261,7 +227,7 @@ class N2_LightGCN(BasicModel):
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]
         neg_emb = all_items[neg_items]
-        users_emb_ego = self.embedding_user(users)
+        users_emb_ego = self.embedding_user[users]
         pos_emb_ego = self.embedding_item(pos_items)
         neg_emb_ego = self.embedding_item(neg_items)
         return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
