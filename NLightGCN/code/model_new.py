@@ -36,28 +36,18 @@ class N1_LightGCN(BasicModel):
         self.num_users  = self.dataset.n_users
         self.num_items  = self.dataset.m_items
         self.latent_dim = self.config['latent_dim_rec']
-        self.hidden_dim = self.config['hidden_dim_rec']
         self.keep_prob = eval(self.config['keep_prob'])
+        self.n_layers = self.config['lightGCN_n_layers']
         self.A_split = self.config['A_split']
-        self.embedding_user = torch.nn.Embedding(
-            num_embeddings=self.num_users, embedding_dim=self.latent_dim)
         self.embedding_item = torch.nn.Embedding(
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
         if self.config['pretrain'] == 0:
-            nn.init.normal_(self.embedding_user.weight, std=0.1)
             nn.init.normal_(self.embedding_item.weight, std=0.1)
             world.cprint('use NORMAL distribution initilizer')
         else:
-            self.embedding_user.weight.data.copy_(torch.from_numpy(self.config['user_emb']))
             self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
             print('use pretarined data')
         self.f = nn.Sigmoid().to(world.device)
-        self.w_u1 = nn.Linear(self.latent_dim, self.hidden_dim).to(world.device)
-        self.w_u2 = nn.Linear(self.latent_dim, self.hidden_dim).to(world.device)
-        self.w_i1 = nn.Linear(self.latent_dim, self.hidden_dim).to(world.device)
-        self.w_i2 = nn.Linear(self.latent_dim, self.hidden_dim).to(world.device)
-        self.w_u = nn.Linear(self.hidden_dim * 2, self.hidden_dim).to(world.device)
-        self.w_i = nn.Linear(self.hidden_dim * 2, self.hidden_dim).to(world.device)
 
         self.Graph, self.Graph_UI, self.Graph_U2, self.Graph_I2 = self.dataset.getSparseGraph()
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
@@ -77,7 +67,7 @@ class N1_LightGCN(BasicModel):
     def __dropout(self, keep_prob):
         if self.A_split:
             graph = []
-            for g in self.Graph:
+            for g in self.Graph_I2:
                 graph.append(self.__dropout_x(g, keep_prob))
         else:
             graph = self.__dropout_x(self.Graph, keep_prob)
@@ -87,31 +77,33 @@ class N1_LightGCN(BasicModel):
         """
         propagate methods for lightGCN
         """
-        users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
-        all_emb = torch.cat([users_emb, items_emb])
-        #   torch.split(all_emb , [self.num_users, self.num_items])
-        embs = [all_emb]
+        embs = [items_emb]
+
         if self.config['dropout']:
             if self.training:
                 print("droping")
-                g_r_droped = self.__dropout(self.keep_prob[0])
-                g_u2_droped = self.__dropout(self.keep_prob[1])
-                g_i2_droped = self.__dropout(self.keep_prob[2])
+                g_droped = self.__dropout(self.keep_prob)
             else:
-                g_r_droped, g_u2_droped, g_i2_droped = self.Graph_UI, self.Graph_U2, self.Graph_I2
+                g_droped = self.Graph_I2
         else:
-            g_r_droped, g_u2_droped, g_i2_droped = self.Graph_UI, self.Graph_U2, self.Graph_I2
+            g_droped = self.Graph_I2
 
-        h_u1 = torch.sparse.mm(g_r_droped, items_emb)
-        h_u2 = torch.sparse.mm(g_u2_droped, users_emb)
-        h_i1 = torch.sparse.mm(g_r_droped.t(), users_emb)
-        h_i2 = torch.sparse.mm(g_i2_droped, items_emb)
-        h_u = torch.cat([self.f(self.w_u1(h_u1)), self.f(self.w_u2(h_u2))], dim=1)
-        h_i = torch.cat([self.f(self.w_i1(h_i1)), self.f(self.w_i2(h_i2))], dim=1)
+        for layer in range(self.n_layers):
+            if self.A_split:
+                temp_emb = []
+                for f in range(len(g_droped)):
+                    temp_emb.append(torch.sparse.mm(g_droped[f], items_emb))
+                side_emb = torch.cat(temp_emb, dim=0)
+                items_emb = side_emb
+            else:
+                items_emb = torch.sparse.mm(g_droped, items_emb)
+            embs.append(items_emb)
+        embs = torch.stack(embs, dim=1)
 
-        users = self.w_u(h_u)
-        items = self.w_i(h_i)
+        items = torch.mean(embs, dim=1)
+        users = torch.sparse.mm(self.Graph_UI, items).to(world.device)
+        self.embedding_user = users.to(world.device)
 
         return users, items
     
@@ -127,7 +119,7 @@ class N1_LightGCN(BasicModel):
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]
         neg_emb = all_items[neg_items]
-        users_emb_ego = self.embedding_user(users)
+        users_emb_ego = self.embedding_user[users]
         pos_emb_ego = self.embedding_item(pos_items)
         neg_emb_ego = self.embedding_item(neg_items)
         return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
