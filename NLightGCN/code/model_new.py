@@ -258,7 +258,7 @@ class Simple_N1_LightGCN(BasicModel):
          userEmb0, posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
         reg_loss = (posEmb0.norm(2).pow(2) +
                               negEmb0.norm(2).pow(2)) / float(len(users)) + \
-                   (self.att.norm(2).pow(2)) / len(self.att)
+                   (1 + self.att.norm(2).pow(2)) / (len(self.att) + 1)
         pos_scores = torch.mul(users_emb, pos_emb)
         pos_scores = torch.sum(pos_scores, dim=1)
         neg_scores = torch.mul(users_emb, neg_emb)
