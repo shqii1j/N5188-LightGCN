@@ -25,6 +25,7 @@ MODELS = {
     'mf': model.PureMF,
     'lgn': model.LightGCN,
     'n1_lgn': model_new.N1_LightGCN,
+    'simple_n1_lgn': model_new.Simple_N1_LightGCN,
     'n2_lgn': model_new.N2_LightGCN,
     'simple_n2_lgn': model_new.Simple_N2_LightGCN
 }

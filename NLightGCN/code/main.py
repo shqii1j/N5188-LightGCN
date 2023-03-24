@@ -1,3 +1,5 @@
+import pdb
+
 import world
 import utils
 from world import cprint
@@ -45,6 +47,9 @@ else:
     world.cprint("not enable tensorflowboard")
 
 try:
+    if world.model_name in ['n1_lgn', 'n2_lgn']:
+        columns = ['layer_'+str(i) for i in range(world.config['lightGCN_n_layers'])]
+        layer_ws = [[] for i in range(world.config['lightGCN_n_layers'])]
     for epoch in range(world.TRAIN_epochs):
         start = time.time()
         if (epoch+1) % 10 == 0 or epoch == 0:
@@ -58,7 +63,18 @@ try:
         aver_loss, time_info = Procedure.BPR_train_original(dataset, Recmodel, bpr, epoch, neg_k=Neg_k,w=w)
         print(f'EPOCH[{epoch+1}/{world.TRAIN_epochs}] loss{aver_loss:.3f}-{time_info}')
         wandb.log({"Loss": aver_loss}, step=epoch+1)
+        try:
+            for i, wei in enumerate(Recmodel.att.detach()):
+                layer_ws[i].append(wei.item())
+        except:
+            print("No Attention")
         torch.save(Recmodel.state_dict(), weight_file)
+    xs = [i for i in range(world.TRAIN_epochs)]
+    wandb.log({"attention weights": wandb.plot.line_series(
+        xs=xs,
+        ys=layer_ws,
+        keys=columns,
+        title="Attention Weights")})
     wandb.finish()
 
 finally:
