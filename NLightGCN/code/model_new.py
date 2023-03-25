@@ -36,9 +36,10 @@ class N1_LightGCN(BasicModel):
         self.num_users  = self.dataset.n_users
         self.num_items  = self.dataset.m_items
         self.latent_dim = self.config['latent_dim_rec']
-        self.keep_prob = eval(self.config['keep_prob'])
+        self.keep_prob = self.config['keep_prob']
         self.n_layers = self.config['lightGCN_n_layers']
         self.A_split = self.config['A_split']
+        self.beta = self.config['beta']
         self.embedding_item = torch.nn.Embedding(
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
         if self.config['pretrain'] == 0:
@@ -71,7 +72,7 @@ class N1_LightGCN(BasicModel):
             for g in self.Graph_I2:
                 graph.append(self.__dropout_x(g, keep_prob))
         else:
-            graph = self.__dropout_x(self.Graph, keep_prob)
+            graph = self.__dropout_x(self.Graph_I2, keep_prob)
         return graph
     
     def computer(self):
@@ -83,7 +84,6 @@ class N1_LightGCN(BasicModel):
 
         if self.config['dropout']:
             if self.training:
-                print("droping")
                 g_droped = self.__dropout(self.keep_prob)
             else:
                 g_droped = self.Graph_I2
@@ -127,9 +127,10 @@ class N1_LightGCN(BasicModel):
     def bpr_loss(self, users, pos, neg):
         (users_emb, pos_emb, neg_emb, 
         userEmb0,  posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
-        reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
-                         posEmb0.norm(2).pow(2)  +
-                         negEmb0.norm(2).pow(2))/float(len(users))
+        reg_loss = (1 / 2) * (posEmb0.norm(2).pow(2) +
+                    negEmb0.norm(2).pow(2)) / float(len(users)) + \
+                   self.beta * self.att.norm(2).pow(2)
+
         pos_scores = torch.mul(users_emb, pos_emb)
         pos_scores = torch.sum(pos_scores, dim=1)
         neg_scores = torch.mul(users_emb, neg_emb)
@@ -164,7 +165,7 @@ class Simple_N1_LightGCN(BasicModel):
         self.num_users = self.dataset.n_users
         self.num_items = self.dataset.m_items
         self.latent_dim = self.config['latent_dim_rec']
-        self.keep_prob = eval(self.config['keep_prob'])
+        self.keep_prob = self.config['keep_prob']
         self.n_layers = self.config['lightGCN_n_layers']
         self.A_split = self.config['A_split']
         self.embedding_item = torch.nn.Embedding(
@@ -200,7 +201,7 @@ class Simple_N1_LightGCN(BasicModel):
             for g in self.Graph_I2:
                 graph.append(self.__dropout_x(g, keep_prob))
         else:
-            graph = self.__dropout_x(self.Graph, keep_prob)
+            graph = self.__dropout_x(self.Graph_I2, keep_prob)
         return graph
 
     def computer(self):
@@ -212,7 +213,6 @@ class Simple_N1_LightGCN(BasicModel):
 
         if self.config['dropout']:
             if self.training:
-                print("droping")
                 g_droped = self.__dropout(self.keep_prob)
             else:
                 g_droped = self.Graph_I2
@@ -256,9 +256,8 @@ class Simple_N1_LightGCN(BasicModel):
     def bpr_loss(self, users, pos, neg):
         (users_emb, pos_emb, neg_emb,
          userEmb0, posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
-        reg_loss = (posEmb0.norm(2).pow(2) +
-                              negEmb0.norm(2).pow(2)) / float(len(users)) + \
-                   (1 + self.att.norm(2).pow(2)) / (len(self.att) + 1)
+        reg_loss = (1 / 2) * (posEmb0.norm(2).pow(2) +
+                              negEmb0.norm(2).pow(2)) / float(len(users))
         pos_scores = torch.mul(users_emb, pos_emb)
         pos_scores = torch.sum(pos_scores, dim=1)
         neg_scores = torch.mul(users_emb, neg_emb)
@@ -513,8 +512,7 @@ class Simple_N2_LightGCN(BasicModel):
     def bpr_loss(self, users, pos, neg):
         (users_emb, pos_emb, neg_emb,
          userEmb0, posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
-        reg_loss = (1 / 2) * (userEmb0.norm(2).pow(2) +
-                              posEmb0.norm(2).pow(2) +
+        reg_loss = (1 / 2) * (posEmb0.norm(2).pow(2) +
                               negEmb0.norm(2).pow(2)) / float(len(users))
         pos_scores = torch.mul(users_emb, pos_emb)
         pos_scores = torch.sum(pos_scores, dim=1)

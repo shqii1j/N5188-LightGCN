@@ -24,7 +24,7 @@ def parse_args():
                         help="the weight decay for l2 normalizaton")
     parser.add_argument('--dropout', type=int,default=0,
                         help="using the dropout or not")
-    parser.add_argument('--keepprob', type=str,default="[0.6,0.6,0.6]",
+    parser.add_argument('--keepprob', type=float,default=0.6,
                         help="the batch size for bpr loss training procedure")
     parser.add_argument('--a_fold', type=int,default=100,
                         help="the fold num used to split large adj matrix, like gowalla")
@@ -45,4 +45,6 @@ def parse_args():
     parser.add_argument('--pretrain', type=int, default=0, help='whether we use pretrained weight or not')
     parser.add_argument('--seed', type=int, default=2020, help='random seed')
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn, n1_lgn, simple_n1_lgn, n2_lgn, simple_n2_lgn]')
+
+    parser.add_argument('--beta', type=float, default=1.0, help='the coeffient of weight regularization')
     return parser.parse_args()
