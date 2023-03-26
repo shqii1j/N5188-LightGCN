@@ -75,7 +75,7 @@ class N1_LightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph_I2, keep_prob)
         return graph
     
-    def computer(self):
+    def computer(self, if_mean=True):
         """
         propagate methods for lightGCN
         """
@@ -104,6 +104,9 @@ class N1_LightGCN(BasicModel):
         items = torch.mean(embs, dim=1)
         users = torch.sparse.mm(self.Graph_UI, items).to(world.device)
         self.embedding_user = users.to(world.device)
+
+        if not if_mean:
+            items = embs[self.num_users:, :]
 
         return users, items
     
@@ -204,7 +207,7 @@ class Simple_N1_LightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph_I2, keep_prob)
         return graph
 
-    def computer(self):
+    def computer(self, if_mean=True):
         """
         propagate methods for lightGCN
         """
@@ -233,6 +236,9 @@ class Simple_N1_LightGCN(BasicModel):
         items = torch.mean(embs, dim=1)
         users = torch.sparse.mm(self.Graph_UI, items).to(world.device)
         self.embedding_user = users.to(world.device)
+
+        if not if_mean:
+            items = embs[self.num_users:, :]
 
         return users, items
 
@@ -330,7 +336,7 @@ class N2_LightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph, keep_prob)
         return graph
 
-    def computer(self):
+    def computer(self, if_mean=True):
         """
         propagate methods for lightGCN
         """
@@ -362,6 +368,8 @@ class N2_LightGCN(BasicModel):
         embs = torch.stack(embs, dim=1)
         light_out = torch.mean(embs, dim=1)
         users, items = torch.split(light_out, [self.num_users, self.num_items])
+        if not if_mean:
+            items = embs[self.num_users:, :]
         return users, items
 
     def getUsersRating(self, users):
@@ -457,7 +465,7 @@ class Simple_N2_LightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph, keep_prob)
         return graph
 
-    def computer(self):
+    def computer(self, if_mean=True):
         """
         propagate methods for lightGCN
         """
@@ -487,9 +495,10 @@ class Simple_N2_LightGCN(BasicModel):
                 all_emb = torch.sparse.mm(g_droped, all_emb)
             embs.append(all_emb)
         embs = torch.stack(embs, dim=1)
-        # print(embs.size())
         light_out = torch.mean(embs, dim=1)
         users, items = torch.split(light_out, [self.num_users, self.num_items])
+        if not if_mean:
+            items = embs[self.num_users:, :]
         return users, items
 
     def getUsersRating(self, users):
@@ -549,14 +558,14 @@ class MixGCF(nn.Module):
         self.pool = self.config["pool"]
         self.decay = self.config["decay"]
         self.seed_embed = nn.Parameter(torch.randn(self.batch_size,1))
-        self.K = self.model.n_layers
+        self.K = self.config["K"]
 
-    def mixgcf(self, batch=None):
+    def forward(self, batch=None):
         user = batch['users']
         pos_item = batch['pos_items']
         neg_item = batch['neg_items']  # [batch_size, n_negs * K]
 
-        user_gcn_emb, item_gcn_emb = self.model.computer()
+        user_gcn_emb, item_gcn_emb = self.model.computer(if_mean=False)
         neg_gcn_embs = []
         for k in range(self.K):
             neg_gcn_embs.append(self.negative_sampling(user_gcn_emb, item_gcn_emb,
@@ -570,35 +579,22 @@ class MixGCF(nn.Module):
         batch_size = user.shape[0]
         s_e, p_e = user_gcn_emb[user], item_gcn_emb[pos_item]  # [batch_size, n_hops+1, channel]
         seed = self.seed_embed.unsqueeze(dim=1).unsqueeze(dim=1)
-        if self.pool != 'concat':
-            s_e = self.pooling(s_e).unsqueeze(dim=1)
 
         """positive mixing"""
         n_e = item_gcn_emb[neg_candidates]  # [batch_size, n_negs, n_hops, channel]
         n_e_ = seed * p_e.unsqueeze(dim=1) + (1 - seed) * n_e  # mixing
 
         """hop mixing"""
-        scores = (s_e.unsqueeze(dim=1) * n_e_).sum(dim=-1)  # [batch_size, n_negs, n_hops+1]
+        scores = (s_e.unsqueeze(dim=1).unsqueeze(dim=1) * n_e_).sum(dim=-1)  # [batch_size, n_negs, n_hops+1]
         indices = torch.max(scores, dim=1)[1].detach()
         neg_items_emb_ = n_e_.permute([0, 2, 1, 3])  # [batch_size, n_hops+1, n_negs, channel]
         # [batch_size, n_hops+1, channel]
         return neg_items_emb_[[[i] for i in range(batch_size)],
                range(neg_items_emb_.shape[1]), indices, :]
 
-    def pooling(self, embeddings):
-        # [-1, n_hops, channel]
-        if self.pool == 'mean':
-            return embeddings.mean(dim=1)
-        elif self.pool == 'sum':
-            return embeddings.sum(dim=1)
-        elif self.pool == 'concat':
-            return embeddings.view(embeddings.shape[0], -1)
-        else:  # final
-            return embeddings[:, -1, :]
 
     def generate(self, split=True):
-        user_gcn_emb, item_gcn_emb = self.model.compute()
-        user_gcn_emb, item_gcn_emb = self.pooling(user_gcn_emb), self.pooling(item_gcn_emb)
+        user_gcn_emb, item_gcn_emb = self.model.computer()
         if split:
             return user_gcn_emb, item_gcn_emb
         else:
@@ -612,26 +608,25 @@ class MixGCF(nn.Module):
             pos_gcn_embs: [batch_size, n_hops+1, channel]
             neg_gcn_embs: [batch_size, K, n_hops+1, channel]
         """
-
         batch_size = user_gcn_emb.shape[0]
 
-        u_e = self.pooling(user_gcn_emb)
-        pos_e = self.pooling(pos_gcn_embs)
-        neg_e = self.pooling(neg_gcn_embs.
-                             view(-1, neg_gcn_embs.shape[2], neg_gcn_embs.shape[3]))\
-                .view(batch_size,self.K, -1)
-        pos_scores = torch.sum(torch.mul(u_e, pos_e), axis=1)
+        u_e = user_gcn_emb
+        pos_e = torch.mean(pos_gcn_embs, dim=1)
+        neg_e = torch.mean(neg_gcn_embs.
+                             view(-1, neg_gcn_embs.shape[2], neg_gcn_embs.shape[3]), dim=1)\
+                .view(batch_size, self.K, -1)
+        pos_scores = torch.mul(u_e, pos_e)
         neg_scores = torch.sum(torch.mul(u_e.unsqueeze(dim=1), neg_e), axis=-1)  # [batch_size, K]
         mf_loss = torch.mean(torch.log(1 + torch.exp(neg_scores - pos_scores.unsqueeze(dim=1)).sum(dim=1)))
 
         # cul regularizer
-        if user_gcn_emb.requires_grad:
-            regularize = (torch.norm(user_gcn_emb[:, 0, :]) ** 2
-                          + torch.norm(pos_gcn_embs[:, 0, :]) ** 2
-                          + torch.norm(neg_gcn_embs[:, :, 0, :]) ** 2) / 2  # take hop=0
+        if u_e.requires_grad:
+            regularize = (u_e.norm(2).pow(2)
+                          + pos_e.norm(2).pow(2)
+                          + neg_e.norm(2).pow(2)) / 2  # take hop=0
         else:
-            regularize = (torch.norm(pos_gcn_embs[:, 0, :]) ** 2
-                          + torch.norm(neg_gcn_embs[:, :, 0, :]) ** 2) / 2
+            regularize = (pos_e.norm(2).pow(2)
+                          + neg_e.norm(2).pow(2)) / 2
         emb_loss = self.decay * regularize / batch_size
 
         return mf_loss + emb_loss, mf_loss, emb_loss

@@ -137,7 +137,7 @@ class LightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph, keep_prob)
         return graph
     
-    def computer(self):
+    def computer(self, if_mean=True):
         """
         propagate methods for lightGCN
         """
@@ -168,6 +168,8 @@ class LightGCN(BasicModel):
         #print(embs.size())
         light_out = torch.mean(embs, dim=1)
         users, items = torch.split(light_out, [self.num_users, self.num_items])
+        if not if_mean:
+            items = embs[self.num_users:, :]
         return users, items
     
     def getUsersRating(self, users):

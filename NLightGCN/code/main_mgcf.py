@@ -18,7 +18,7 @@ from register import dataset
 import wandb
 from model_new import MixGCF
 
-def get_feed_dict(train_entity_pairs, train_pos_set, n_items, start, end, n_negs=1):
+def get_feed_dict(train_entity_pairs, train_pos_set, n_items, start, end, n_negs=1, K=world.config["K"]):
 
     def sampling(user_item, train_set, n):
         neg_items = []
@@ -40,7 +40,7 @@ def get_feed_dict(train_entity_pairs, train_pos_set, n_items, start, end, n_negs
     feed_dict['pos_items'] = entity_pairs[:, 1]
     feed_dict['neg_items'] = torch.LongTensor(sampling(entity_pairs,
                                                        train_pos_set,
-                                                       n_negs*K)).to(world.config['device'])
+                                                       n_negs*K)).to(world.device)
     return feed_dict
 
 
@@ -70,14 +70,15 @@ Neg_k = 1
 train_cf = torch.LongTensor(np.dstack([dataset.trainUser, dataset.trainItem])[0])
 train_cf_size = len(train_cf)
 
-pdb.set_trace()
+
 train_user_set = dict()
 for u_id, i_id in zip(dataset.trainUser, dataset.trainItem):
     if train_user_set.get(u_id):
         train_user_set[u_id].append(i_id)
     else:
         train_user_set[u_id] = [i_id]
-test_user_set = dataset.__testDict
+
+test_user_set = dataset.testDict
 user_dict = {'train_user_set': train_user_set,
              'test_user_set': test_user_set}
 
@@ -97,7 +98,7 @@ for epoch in range(world.TRAIN_epochs):
     train_cf_ = train_cf
     index = np.arange(len(train_cf_))
     np.random.shuffle(index)
-    train_cf_ = train_cf_[index].to(world.config['device'])
+    train_cf_ = train_cf_[index].to(world.device)
 
     """training"""
 
@@ -105,12 +106,12 @@ for epoch in range(world.TRAIN_epochs):
 
     loss, s = 0, 0
     hits = 0
-    train_s_t = time()
+    train_s_t = time.time()
     while s + world.config['batch_size'] <= len(train_cf):
         batch = get_feed_dict(train_cf_,
                               user_dict['train_user_set'],
-                              s, s + world.config['batch_size'],
                               dataset.m_items,
+                              s, s + world.config['batch_size'],
                               world.config['n_negs'])
 
         batch_loss, _, _ = model(batch)
