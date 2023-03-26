@@ -2,8 +2,8 @@ import pdb
 
 import world
 import utils
-from mixgcf_utils.evaluate import test
-from mixgcf_utils.helper import early_stopping
+from evaluate import test
+from helper import early_stopping
 import torch
 import numpy as np
 import random
@@ -70,9 +70,13 @@ Neg_k = 1
 train_cf = torch.LongTensor(np.dstack([dataset.trainUser, dataset.trainItem])[0])
 train_cf_size = len(train_cf)
 
+pdb.set_trace()
 train_user_set = dict()
 for u_id, i_id in zip(dataset.trainUser, dataset.trainItem):
-    train_user_set[int(u_id)].append(int(i_id))
+    if train_user_set.get(u_id):
+        train_user_set[u_id].append(i_id)
+    else:
+        train_user_set[u_id] = [i_id]
 test_user_set = dataset.__testDict
 user_dict = {'train_user_set': train_user_set,
              'test_user_set': test_user_set}

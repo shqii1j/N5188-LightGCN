@@ -539,9 +539,18 @@ class MixGCF(nn.Module):
     def __init__(self, config, dataset, model):
         super(MixGCF, self).__init__()
         self.model = model(config, dataset)
-        self.seed_embed = nn.Parameter(torch.randn(self.batch_size,1))
+        self.config = config
+        self.dataset = dataset
+        self.__init_weight()
+
+    def __init_weight(self):
+        self.batch_size = self.config["batch_size"]
         self.n_negs = self.config["n_negs"]
         self.pool = self.config["pool"]
+        self.decay = self.config["decay"]
+        self.seed_embed = nn.Parameter(torch.randn(self.batch_size,1))
+        self.K = self.model.n_layers
+
     def mixgcf(self, batch=None):
         user = batch['users']
         pos_item = batch['pos_items']

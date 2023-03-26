@@ -1,6 +1,3 @@
-from .metrics import *
-from .parser import parse_args
-
 import random
 import torch
 import math
@@ -8,14 +5,17 @@ import numpy as np
 import multiprocessing
 import heapq
 from time import time
+import sys
+sys.path.append("")
+import world
+from metrics import *
 
 cores = multiprocessing.cpu_count() // 2
 
-args = parse_args()
-Ks = eval(args.Ks)
-device = torch.device("cuda:0") if args.cuda else torch.device("cpu")
-BATCH_SIZE = args.test_batch_size
-batch_test_flag = args.batch_test_flag
+
+Ks = world.topks
+device = world.device
+BATCH_SIZE = world.config['test_u_batch_size']
 
 
 def ranklist_by_heapq(user_pos_test, test_items, rating, Ks):
@@ -149,30 +149,24 @@ def test(model, user_dict, mode='test'):
         user_batch = torch.LongTensor(np.array(user_list_batch)).to(device)
         u_g_embeddings = user_gcn_emb[user_batch]
 
-        if batch_test_flag:
-            # batch-item test
-            n_item_batchs = n_items // i_batch_size + 1
-            rate_batch = np.zeros(shape=(len(user_batch), n_items))
+        n_item_batchs = n_items // i_batch_size + 1
+        rate_batch = np.zeros(shape=(len(user_batch), n_items))
 
-            i_count = 0
-            for i_batch_id in range(n_item_batchs):
-                i_start = i_batch_id * i_batch_size
-                i_end = min((i_batch_id + 1) * i_batch_size, n_items)
+        i_count = 0
+        for i_batch_id in range(n_item_batchs):
+            i_start = i_batch_id * i_batch_size
+            i_end = min((i_batch_id + 1) * i_batch_size, n_items)
 
-                item_batch = torch.LongTensor(np.array(range(i_start, i_end))).view(i_end-i_start).to(device)
-                i_g_embddings = item_gcn_emb[item_batch]
-                #print(u_g_embeddings, i_g_embddings)
-                i_rate_batch = model.rating(u_g_embeddings, i_g_embddings).detach().cpu()
-
-                rate_batch[:, i_start:i_end] = i_rate_batch
-                i_count += i_rate_batch.shape[1]
-
-            assert i_count == n_items
-        else:
-            # all-item test
-            item_batch = torch.LongTensor(np.array(range(0, n_items))).view(n_items, -1).to(device)
+            item_batch = torch.LongTensor(np.array(range(i_start, i_end))).view(i_end-i_start).to(device)
             i_g_embddings = item_gcn_emb[item_batch]
-            rate_batch = model.rating(u_g_embeddings, i_g_embddings).detach().cpu()
+            #print(u_g_embeddings, i_g_embddings)
+            i_rate_batch = model.rating(u_g_embeddings, i_g_embddings).detach().cpu()
+
+            rate_batch[:, i_start:i_end] = i_rate_batch
+            i_count += i_rate_batch.shape[1]
+
+        assert i_count == n_items
+
 
         user_batch_rating_uid = zip(rate_batch, user_list_batch)
         batch_result = pool.map(test_one_user, user_batch_rating_uid)
