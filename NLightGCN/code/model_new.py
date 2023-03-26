@@ -334,9 +334,9 @@ class N2_LightGCN(BasicModel):
         """
         propagate methods for lightGCN
         """
-        self.embedding_user = torch.sparse.mm(self.Graph_UI, self.embedding_item.weight).to(world.device)
-        users_emb = self.embedding_user
         items_emb = self.embedding_item.weight
+        self.embedding_user = torch.sparse.mm(self.Graph_UI, items_emb).to(world.device)
+        users_emb = self.embedding_user
         all_emb = torch.cat([users_emb, items_emb])
         #   torch.split(all_emb , [self.num_users, self.num_items])
         embs = [all_emb]
@@ -461,9 +461,9 @@ class Simple_N2_LightGCN(BasicModel):
         """
         propagate methods for lightGCN
         """
-        self.embedding_user = torch.sparse.mm(self.Graph_UI, self.embedding_item.weight).to(world.device)
+        items_emb = self.embedding_user.weight
+        self.embedding_user = torch.sparse.mm(self.Graph_UI, items_emb).to(world.device)
         users_emb = self.embedding_user
-        items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
         #   torch.split(all_emb , [self.num_users, self.num_items])
         embs = [all_emb]
@@ -491,7 +491,6 @@ class Simple_N2_LightGCN(BasicModel):
         light_out = torch.mean(embs, dim=1)
         users, items = torch.split(light_out, [self.num_users, self.num_items])
         return users, items
-
     def getUsersRating(self, users):
         all_users, all_items = self.computer()
         users_emb = all_users[users.long()]

@@ -140,7 +140,7 @@ class LightGCN(BasicModel):
     def computer(self):
         """
         propagate methods for lightGCN
-        """       
+        """
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
@@ -148,7 +148,6 @@ class LightGCN(BasicModel):
         embs = [all_emb]
         if self.config['dropout']:
             if self.training:
-                print("droping")
                 g_droped = self.__dropout(self.keep_prob)
             else:
                 g_droped = self.Graph        
