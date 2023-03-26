@@ -96,10 +96,11 @@ def UniformSample_original_python(dataset):
     return np.array(S)
 
 # ===================end samplers==========================
-# =====================utils====================================
+# =====================mixgcf_utils====================================
 
 def set_seed(seed):
     np.random.seed(seed)
+    random.seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)

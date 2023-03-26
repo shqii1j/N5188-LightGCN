@@ -114,7 +114,7 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
             _, rating_K = torch.topk(rating, k=max_K)
             rating = rating.cpu().numpy()
             # aucs = [ 
-            #         utils.AUC(rating[i],
+            #         mixgcf_utils.AUC(rating[i],
             #                   dataset, 
             #                   test_data) for i, test_data in enumerate(groundTrue)
             #     ]

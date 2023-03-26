@@ -491,6 +491,7 @@ class Simple_N2_LightGCN(BasicModel):
         light_out = torch.mean(embs, dim=1)
         users, items = torch.split(light_out, [self.num_users, self.num_items])
         return users, items
+
     def getUsersRating(self, users):
         all_users, all_items = self.computer()
         users_emb = all_users[users.long()]
@@ -532,3 +533,96 @@ class Simple_N2_LightGCN(BasicModel):
         inner_pro = torch.mul(users_emb, items_emb)
         gamma = torch.sum(inner_pro, dim=1)
         return gamma
+
+
+class MixGCF(nn.Module):
+    def __init__(self, config, dataset, model):
+        super(MixGCF, self).__init__()
+        self.model = model(config, dataset)
+        self.seed_embed = nn.Parameter(torch.randn(self.batch_size,1))
+        self.n_negs = self.config["n_negs"]
+        self.pool = self.config["pool"]
+    def mixgcf(self, batch=None):
+        user = batch['users']
+        pos_item = batch['pos_items']
+        neg_item = batch['neg_items']  # [batch_size, n_negs * K]
+
+        user_gcn_emb, item_gcn_emb = self.model.computer()
+        neg_gcn_embs = []
+        for k in range(self.K):
+            neg_gcn_embs.append(self.negative_sampling(user_gcn_emb, item_gcn_emb,
+                                                       user, neg_item[:, k * self.n_negs: (k + 1) * self.n_negs],
+                                                       pos_item))
+        neg_gcn_embs = torch.stack(neg_gcn_embs, dim=1)
+
+        return self.create_bpr_loss(user_gcn_emb[user], item_gcn_emb[pos_item], neg_gcn_embs)
+
+    def negative_sampling(self, user_gcn_emb, item_gcn_emb, user, neg_candidates, pos_item):
+        batch_size = user.shape[0]
+        s_e, p_e = user_gcn_emb[user], item_gcn_emb[pos_item]  # [batch_size, n_hops+1, channel]
+        seed = self.seed_embed.unsqueeze(dim=1).unsqueeze(dim=1)
+        if self.pool != 'concat':
+            s_e = self.pooling(s_e).unsqueeze(dim=1)
+
+        """positive mixing"""
+        n_e = item_gcn_emb[neg_candidates]  # [batch_size, n_negs, n_hops, channel]
+        n_e_ = seed * p_e.unsqueeze(dim=1) + (1 - seed) * n_e  # mixing
+
+        """hop mixing"""
+        scores = (s_e.unsqueeze(dim=1) * n_e_).sum(dim=-1)  # [batch_size, n_negs, n_hops+1]
+        indices = torch.max(scores, dim=1)[1].detach()
+        neg_items_emb_ = n_e_.permute([0, 2, 1, 3])  # [batch_size, n_hops+1, n_negs, channel]
+        # [batch_size, n_hops+1, channel]
+        return neg_items_emb_[[[i] for i in range(batch_size)],
+               range(neg_items_emb_.shape[1]), indices, :]
+
+    def pooling(self, embeddings):
+        # [-1, n_hops, channel]
+        if self.pool == 'mean':
+            return embeddings.mean(dim=1)
+        elif self.pool == 'sum':
+            return embeddings.sum(dim=1)
+        elif self.pool == 'concat':
+            return embeddings.view(embeddings.shape[0], -1)
+        else:  # final
+            return embeddings[:, -1, :]
+
+    def generate(self, split=True):
+        user_gcn_emb, item_gcn_emb = self.model.compute()
+        user_gcn_emb, item_gcn_emb = self.pooling(user_gcn_emb), self.pooling(item_gcn_emb)
+        if split:
+            return user_gcn_emb, item_gcn_emb
+        else:
+            return torch.cat([user_gcn_emb, item_gcn_emb], dim=0)
+
+    def rating(self, u_g_embeddings=None, i_g_embeddings=None):
+        return torch.matmul(u_g_embeddings, i_g_embeddings.t())
+
+    def create_bpr_loss(self, user_gcn_emb, pos_gcn_embs, neg_gcn_embs):
+        """ user_gcn_emb: [batch_size, n_hops+1, channel]
+            pos_gcn_embs: [batch_size, n_hops+1, channel]
+            neg_gcn_embs: [batch_size, K, n_hops+1, channel]
+        """
+
+        batch_size = user_gcn_emb.shape[0]
+
+        u_e = self.pooling(user_gcn_emb)
+        pos_e = self.pooling(pos_gcn_embs)
+        neg_e = self.pooling(neg_gcn_embs.
+                             view(-1, neg_gcn_embs.shape[2], neg_gcn_embs.shape[3]))\
+                .view(batch_size,self.K, -1)
+        pos_scores = torch.sum(torch.mul(u_e, pos_e), axis=1)
+        neg_scores = torch.sum(torch.mul(u_e.unsqueeze(dim=1), neg_e), axis=-1)  # [batch_size, K]
+        mf_loss = torch.mean(torch.log(1 + torch.exp(neg_scores - pos_scores.unsqueeze(dim=1)).sum(dim=1)))
+
+        # cul regularizer
+        if user_gcn_emb.requires_grad:
+            regularize = (torch.norm(user_gcn_emb[:, 0, :]) ** 2
+                          + torch.norm(pos_gcn_embs[:, 0, :]) ** 2
+                          + torch.norm(neg_gcn_embs[:, :, 0, :]) ** 2) / 2  # take hop=0
+        else:
+            regularize = (torch.norm(pos_gcn_embs[:, 0, :]) ** 2
+                          + torch.norm(neg_gcn_embs[:, :, 0, :]) ** 2) / 2
+        emb_loss = self.decay * regularize / batch_size
+
+        return mf_loss + emb_loss, mf_loss, emb_loss

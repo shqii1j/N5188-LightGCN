@@ -47,4 +47,9 @@ def parse_args():
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn, n1_lgn, simple_n1_lgn, n2_lgn, simple_n2_lgn]')
 
     parser.add_argument('--beta', type=float, default=1.0, help='the coeffient of weight regularization')
+
+    """Mix GCF param"""
+    parser.add_argument('--batch_size', type=int, default=1024, help='batch size')
+    parser.add_argument("--n_negs", type=int, default=64, help="number of candidate negative")
+    parser.add_argument("--pool", type=str, default='concat', help="[concat, mean, sum, final]")
     return parser.parse_args()

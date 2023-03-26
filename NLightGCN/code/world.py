@@ -48,6 +48,9 @@ config['pretrain'] = args.pretrain
 config['A_split'] = False
 config['bigdata'] = False
 config['beta'] = args.beta
+config['batch_size'] = args.batch_size
+config['n_negs'] = args.n_negs
+config['pool'] = args.pool
 
 GPU = torch.cuda.is_available()
 device = torch.device('cuda' if GPU else "cpu")
