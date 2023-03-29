@@ -100,10 +100,7 @@ def test_one_user(x):
     all_items = set(range(0, n_items))
     test_items = list(all_items - set(training_items))
 
-    if args.test_flag == 'part':
-        r, auc = ranklist_by_heapq(user_pos_test, test_items, rating, Ks)
-    else:
-        r, auc = ranklist_by_sorted(user_pos_test, test_items, rating, Ks)
+    r, auc = ranklist_by_sorted(user_pos_test, test_items, rating, Ks)
 
     return get_performance(user_pos_test, r, auc, Ks)
 

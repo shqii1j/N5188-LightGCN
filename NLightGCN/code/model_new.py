@@ -469,7 +469,7 @@ class Simple_N2_LightGCN(BasicModel):
         """
         propagate methods for lightGCN
         """
-        items_emb = self.embedding_user.weight
+        items_emb = self.embedding_item.weight
         self.embedding_user = torch.sparse.mm(self.Graph_UI, items_emb).to(world.device)
         users_emb = self.embedding_user
         all_emb = torch.cat([users_emb, items_emb])
@@ -577,7 +577,7 @@ class MixGCF(nn.Module):
 
     def negative_sampling(self, user_gcn_emb, item_gcn_emb, user, neg_candidates, pos_item):
         batch_size = user.shape[0]
-        s_e, p_e = user_gcn_emb[user], item_gcn_emb[pos_item]  # [batch_size, n_hops+1, channel]
+        s_e, p_e = user_gcn_emb[user], item_gcn_emb[pos_item]  # [batch_size, channel] [batch_size, n_hops+1, channel]
         seed = self.seed_embed.unsqueeze(dim=1).unsqueeze(dim=1)
 
         """positive mixing"""
@@ -588,7 +588,7 @@ class MixGCF(nn.Module):
         scores = (s_e.unsqueeze(dim=1).unsqueeze(dim=1) * n_e_).sum(dim=-1)  # [batch_size, n_negs, n_hops+1]
         indices = torch.max(scores, dim=1)[1].detach()
         neg_items_emb_ = n_e_.permute([0, 2, 1, 3])  # [batch_size, n_hops+1, n_negs, channel]
-        # [batch_size, n_hops+1, channel]
+
         return neg_items_emb_[[[i] for i in range(batch_size)],
                range(neg_items_emb_.shape[1]), indices, :]
 
@@ -612,11 +612,11 @@ class MixGCF(nn.Module):
 
         u_e = user_gcn_emb
         pos_e = torch.mean(pos_gcn_embs, dim=1)
-        neg_e = torch.mean(neg_gcn_embs.
-                             view(-1, neg_gcn_embs.shape[2], neg_gcn_embs.shape[3]), dim=1)\
-                .view(batch_size, self.K, -1)
-        pos_scores = torch.mul(u_e, pos_e)
+        neg_e = torch.mean(neg_gcn_embs, dim=2)
+
+        pos_scores = torch.sum(torch.mul(u_e, pos_e), axis=1)
         neg_scores = torch.sum(torch.mul(u_e.unsqueeze(dim=1), neg_e), axis=-1)  # [batch_size, K]
+
         mf_loss = torch.mean(torch.log(1 + torch.exp(neg_scores - pos_scores.unsqueeze(dim=1)).sum(dim=1)))
 
         # cul regularizer

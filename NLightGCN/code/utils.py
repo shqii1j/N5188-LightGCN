@@ -106,19 +106,19 @@ def set_seed(seed):
         torch.cuda.manual_seed_all(seed)
     torch.manual_seed(seed)
 
-def getFileName():
+def getFileName(add=""):
     if world.model_name == 'mf':
-        file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}.pth.tar"
+        file = add + f"mf-{world.dataset}-{world.config['latent_dim_rec']}.pth.tar"
     elif world.model_name == 'lgn':
-        file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}.pth.tar"
+        file = add + f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}.pth.tar"
     elif world.model_name == 'n1_lgn':
-        file = f"n1_lgn_w2_1-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}.pth.tar"
+        file = add + f"n1_lgn_w2_1-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}.pth.tar"
     elif world.model_name == 'simple_n1_lgn':
-        file = f"simple_n1_lgn_w2_1-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-lr{world.config.lr}.pth.tar"
+        file = add + f"simple_n1_lgn_1-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-lr{world.config.lr}.pth.tar"
     elif world.model_name == 'n2_lgn':
-        file = f"n2_lgn-{world.dataset}-{world.config['hidden_dim_rec']}.pth.tar"
+        file = add + f"n2_lgn-{world.dataset}-{world.config['hidden_dim_rec']}.pth.tar"
     elif world.model_name == 'simple_n2_lgn':
-        file = f"simple_n2_lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}.pth.tar"
+        file = add + f"simple_n2_lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}.pth.tar"
     return os.path.join(world.FILE_PATH,file)
 
 def minibatch(*tensors, **kwargs):
