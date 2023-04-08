@@ -2,6 +2,7 @@ import pdb
 
 import world
 import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 from world import cprint
 import Procedure
 import utils
@@ -95,7 +96,10 @@ try:
 
     optimizer = torch.optim.Adam(model.parameters(), lr=world.config['lr'])
 
-    batch_size = world.config['batch_size']
+    try:
+        batch_size = world.config['batch_size']
+    except:
+        batch_size = len(train_cf)
     cur_best_pre_0 = 0
     stopping_step = 0
     should_stop = False
@@ -122,7 +126,6 @@ try:
                                   train_user_neg_set,
                                   s, s + batch_size,
                                   world.config['n_negs'])
-
             batch_loss, _, _ = model(batch)
             optimizer.zero_grad()
             batch_loss.backward()

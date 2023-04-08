@@ -94,11 +94,11 @@ class N1_LightGCN(BasicModel):
             if self.A_split:
                 temp_emb = []
                 for f in range(len(g_droped)):
-                    temp_emb.append(torch.sparse.mm(g_droped[f], items_emb) * self.att[layer])
+                    temp_emb.append(g_droped[f].to_dense() @ items_emb * self.att[layer])
                 side_emb = torch.cat(temp_emb, dim=0)
                 items_emb = side_emb
             else:
-                items_emb = torch.sparse.mm(g_droped, items_emb) * self.att[layer]
+                items_emb = g_droped.to_dense() @ items_emb * self.att[layer]
             embs.append(items_emb)
         embs = torch.stack(embs, dim=1)
         items = torch.mean(embs, dim=1)
@@ -106,7 +106,7 @@ class N1_LightGCN(BasicModel):
         self.embedding_user = users.to(world.device)
 
         if not if_mean:
-            items = embs[self.num_users:, :]
+            items = embs
 
         return users, items
     
@@ -226,11 +226,11 @@ class Simple_N1_LightGCN(BasicModel):
             if self.A_split:
                 temp_emb = []
                 for f in range(len(g_droped)):
-                    temp_emb.append(torch.sparse.mm(g_droped[f], items_emb) * self.att[layer])
+                    temp_emb.append(g_droped[f].to_dense() @ items_emb * self.att[layer])
                 side_emb = torch.cat(temp_emb, dim=0)
                 items_emb = side_emb
             else:
-                items_emb = torch.sparse.mm(g_droped, items_emb) * self.att[layer]
+                items_emb = g_droped.to_dense() @ items_emb * self.att[layer]
             embs.append(items_emb)
         embs = torch.stack(embs, dim=1)
         items = torch.mean(embs, dim=1)
@@ -238,7 +238,7 @@ class Simple_N1_LightGCN(BasicModel):
         self.embedding_user = users.to(world.device)
 
         if not if_mean:
-            items = embs[self.num_users:, :]
+            items = embs
 
         return users, items
 

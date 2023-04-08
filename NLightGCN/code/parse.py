@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument('--beta', type=float, default=1.0, help='the coeffient of weight regularization')
 
     """Mix GCF param"""
-    parser.add_argument('--batch_size', type=int, default=1024, help='batch size')
+    parser.add_argument('--batch_size', type=int, default=None, help='batch size')
     parser.add_argument("--n_negs", type=int, default=64, help="number of candidate negative")
     parser.add_argument("--pool", type=str, default='mean', help="[concat, mean, sum, final]")
     parser.add_argument("--K", type=int, default=1, help="number of negative in K-pair loss")
